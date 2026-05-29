@@ -354,12 +354,38 @@ arv_make_thread_high_priority (int priority)
 	return TRUE;
 }
 
+#elif defined(__APPLE__)
+
+/* macOS: SCHED_RR requires root or entitlements not available to normal processes.
+ * Use QOS_CLASS_USER_INTERACTIVE instead, which is the highest schedulable QoS
+ * class available to unprivileged applications. */
+
+#include <pthread.h>
+
+gboolean
+arv_make_thread_realtime (int priority)
+{
+	if (pthread_set_qos_class_self_np (QOS_CLASS_USER_INTERACTIVE, 0) == 0) {
+		arv_info_misc ("Thread set to QOS_CLASS_USER_INTERACTIVE");
+		return TRUE;
+	}
+
+	arv_warning_misc ("Failed to set thread priority on macOS: %s", strerror (errno));
+	return FALSE;
+}
+
+gboolean
+arv_make_thread_high_priority (int nice_level)
+{
+	return arv_make_thread_realtime (0);
+}
+
 #else
 
 gboolean
 arv_make_thread_realtime (int priority)
 {
-	arv_info_misc ("SCHED API not supported on OSX");
+	arv_info_misc ("arv_make_thread_realtime: not supported on this platform");
 
 	return FALSE;
 }
@@ -367,7 +393,7 @@ arv_make_thread_realtime (int priority)
 gboolean
 arv_make_thread_high_priority (int nice_level)
 {
-	arv_info_misc ("RtKit not supported on OSX");
+	arv_info_misc ("arv_make_thread_high_priority: not supported on this platform");
 
 	return FALSE;
 }
